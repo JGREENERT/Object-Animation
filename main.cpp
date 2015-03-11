@@ -12,6 +12,7 @@
 #include "Complex Objects/Raindrop.h"
 #include "Simple Objects/Cylinder.h"
 #include "Simple Objects/Sphere.h"
+#include "Complex Objects/MerryGoRound.h"
 
 using namespace std;
 void displayCallback(GLFWwindow*);
@@ -20,6 +21,7 @@ void displayCallback(GLFWwindow*);
 Cylinder* spot;
 Sphere sphere, sphere1;
 Raindrop drop;
+MerryGoRound mgr;
 const int STORMSIZE = 100;
 const float GRAVITY = 0.25;   /* m/sec^2 */
 double rainSlant = 0.0;
@@ -193,9 +195,11 @@ void displayCallback (GLFWwindow *win)
     glDisable (GL_COLOR_MATERIAL);
 
 
+    /*
+    ** Render the Raindrops
+    */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-
     for(int i = 0; i < STORMSIZE; i++){
         glPushMatrix();
         {
@@ -210,17 +214,21 @@ void displayCallback (GLFWwindow *win)
     }
     glDisable (GL_COLOR_MATERIAL);
 
+    /*
+    ** Render the Merry Go Round
+    */
+    glPushMatrix();
+    mgr.render();
+    glPopMatrix();
+
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glColor3ub (255, 255, 255);
-
     /* render the spot light using its coordinate frame */
     glPushMatrix();
-    glTranslated(5, 5, 5);
     glMultMatrixf(glm::value_ptr(light1_cf));
     spot->render();
     glPopMatrix();
-
     glDisable (GL_COLOR_MATERIAL);
 
     /* to make smooth transition between frame */
@@ -242,6 +250,7 @@ void myModelInit ()
     spot -> build(1 + tan(glm::radians(50.0f)), 1.5, 2.5);
 
     drop.build();
+    mgr.build();
 
     active = &camera_cf;
 
