@@ -1,5 +1,6 @@
 #include <vector>
 #include "../Simple Objects/Cylinder.h"
+#include "../Simple Objects/Torus.h"
 using namespace std;
 
 class MerryGoRound{

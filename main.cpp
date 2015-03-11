@@ -217,9 +217,12 @@ void displayCallback (GLFWwindow *win)
     /*
     ** Render the Merry Go Round
     */
+    glEnable (GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glPushMatrix();
     mgr.render();
     glPopMatrix();
+    glDisable (GL_COLOR_MATERIAL);
 
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
