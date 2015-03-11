@@ -1,265 +1,398 @@
-#include <iostream>
-#include <cmath>
-#include <algorithm>
-
-#define GLEW_STATIC
+#include "BufferObject.h"
 #include <GL/glew.h>
-#ifdef __APPLE__
-#include <OpenGL/glu.h>
-#else
-#include <GL/gl.h>
-#include <GL/glu.h>
-#endif
-
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/vector_angle.hpp>
-#include <glm/gtx/io.hpp>
-
-#undef GLFW_DLL
+#include <sys/time.h>
+#include <math.h>
+#include <iostream>
 #include <GLFW/glfw3.h>
-
-/*
-** Object Includes
-*/
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/io.hpp>
 #include "Complex Objects/Raindrop.h"
+#include "Simple Objects/Cylinder.h"
+#include "Simple Objects/Sphere.h"
 
 using namespace std;
+void displayCallback(GLFWwindow*);
 
-/*
-** Object Global Variables
-*/
-Raindrop rd;
+/* define global variables here */
+Cylinder* spot;
+Sphere sphere, sphere1;
+Raindrop drop;
+const int STORMSIZE = 100;
+const float GRAVITY = 0.25;   /* m/sec^2 */
+double rainSlant = 0.0;
 
-void init_model();
-void win_refresh(GLFWwindow*);
-float arc_ball_rad_square;
-int screen_ctr_x, screen_ctr_y;
+glm::mat4 rain_drop_cf;
+glm::mat4 camera_cf, light1_cf, light0_cf;
+glm::mat4 *active;
 
-glm::mat4 camera_cf; // {glm::translate(glm::mat4(1.0f), glm::vec3{0,0,-5})};
+struct RAIN{
+    double xCoord;
+    double yCoord;
+    double zCoord;
+    glm::mat4 rainCoord;
+};
 
-void err_function (int what, const char *msg) {
-    cerr << what << " " << msg << endl;
-}
+RAIN rainArray[STORMSIZE];
+
+double oldX, oldY, oldZ;
+bool is_anim_running = true;
+double windX, windY, windZ;
+
+/* light source setting */
+GLfloat light0_color[] = {1.0, 1.0, 1.0, 1.0};   /* color */
+GLfloat light1_color[] = {0.99, 0.98, 0.84, 1.0};  /* color */
+GLfloat black_color[] = {0.0, 0.0, 0.0, 1.0};   /* color */
+
+/*--------------------------------*
+ * GLUT Reshape callback function *
+ *--------------------------------*/
 
 
-void win_resize (GLFWwindow * win, int width, int height)
+void reshapeCallback (GLFWwindow *win, int w, int h)
 {
-#ifdef DEBUG
-    cout << __FUNCTION__ << " " << width << "x" << height << endl;
-#endif
-    int w, h;
-    glfwGetWindowSize(win, &w, &h);
-    screen_ctr_x = w / 2.0;
-    screen_ctr_y = h / 2.0;
-    float rad = min(h,w)/2;
-    arc_ball_rad_square = rad * rad;
-    /* Use the entire window for our view port */
-    glViewport(0, 0, width, height);
-    /* Use GL_PROJECTION to select the type of synthetic camera */
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
+    glViewport (0, 0, w, h);
 
-    /* near-plane(1) & far-plane(10) are always POSITIVE and they measure
-     * the distances along the Z-axis in front of the camera */
-    gluPerspective(60.0, static_cast<float> (width)/ static_cast<float> (height), 1, 10);
+    /* switch to Projection matrix mode */
+    glMatrixMode (GL_PROJECTION);
+    glLoadIdentity ();
+
+    gluPerspective (60, (float) w / (float) h, 5.0, 100.0);
+
+    /* switch back to Model View matrix mode */
+    glMatrixMode (GL_MODELVIEW);
+    camera_cf = glm::lookAt(glm::vec3(25,20,20), glm::vec3(0,0,10), glm::vec3(0,0,1));
 }
 
-void win_refresh (GLFWwindow *win) {
-    glClearColor(1, 1, 1, 1);
-    glClear(GL_COLOR_BUFFER_BIT| GL_DEPTH_BUFFER_BIT);
+/*================================================================*
+ * Idle Callback function. This is the main engine for simulation *
+ *================================================================*/
+void updateCoordFrames()
+{
+    static double last_timestamp = 0;
+    static int deg = 0;
+    float delta, current;
 
-    glMatrixMode (GL_MODELVIEW);
-    glLoadIdentity();
-    /* place the camera using the camera coordinate frame */
-    glMultMatrixf (glm::value_ptr(camera_cf));
 
-   /*
-   ** TODO: Place Objects
-   */
-    for(int i =0 ; i < 5; i++) {
+    current = glfwGetTime();
+    if (is_anim_running) {
+        delta = (current - last_timestamp);
+
+        oldZ -=.25;
+        if(oldZ == -1){
+            oldZ = 18;
+        }
+        rain_drop_cf = glm::translate(glm::vec3{oldX, oldY, oldZ});
+
+        for(int i = 0; i < STORMSIZE; i++){
+            rainArray[i].xCoord += windX/2;
+            rainArray[i].yCoord += windY/2;
+            rainArray[i].zCoord -= GRAVITY;
+            if(rainArray[i].zCoord== -1){
+                rainArray[i].xCoord = (rand() %  40) - 20;
+                rainArray[i].yCoord = (rand() % 40) -30;
+                rainArray[i].zCoord = 18+i+1;
+            }
+            rainArray[i].rainCoord = glm::translate(glm::vec3{rainArray[i].xCoord,
+                    rainArray[i].yCoord, rainArray[i].zCoord});
+        }
+        rainSlant = windX + windY;
+    }
+    last_timestamp = current;
+}
+
+void myGLInit ()
+{
+    glClearColor (0, 0, 0, 1); /* black background */
+
+    /* fill front-facing polygon */
+    glPolygonMode (GL_FRONT, GL_FILL);
+    /* draw outline of back-facing polygon */
+    glPolygonMode (GL_BACK, GL_LINE);
+
+    /* Enable depth test for hidden surface removal */
+    glEnable (GL_DEPTH_TEST);
+
+    /* enable back-face culling */
+    glEnable (GL_CULL_FACE);
+    glCullFace (GL_BACK);
+
+    /* Enable shading */
+    glEnable (GL_LIGHTING);
+    glEnable (GL_NORMALIZE); /* Tell OpenGL to renormalize normal vector
+                              after transformation */
+    /* initialize two light sources */
+    glEnable (GL_LIGHT0);
+    glLightfv (GL_LIGHT0, GL_AMBIENT, light0_color);
+    glLightfv (GL_LIGHT0, GL_DIFFUSE, light0_color);
+    glLightfv (GL_LIGHT0, GL_SPECULAR, light0_color);
+    glEnable (GL_LIGHT1);
+    glLightfv (GL_LIGHT1, GL_AMBIENT, light1_color);
+    glLightfv (GL_LIGHT1, GL_DIFFUSE, light1_color);
+    glLightfv (GL_LIGHT1, GL_SPECULAR, light1_color);
+    glLightf (GL_LIGHT1, GL_SPOT_CUTOFF, 40);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+}
+
+/*--------------------------------*
+ * GLUT display callback function *
+ *--------------------------------*/
+void displayCallback (GLFWwindow *win)
+{
+    /* clear the window */
+    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glLoadMatrixf(glm::value_ptr(camera_cf));
+
+    /* Specify the reflectance property of the ground using glColor
+       (instead of glMaterial....)
+     */
+    glEnable (GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    glColor3ub (114, 103, 103);
+
+    glBegin (GL_QUADS);
+    const int GROUND_SIZE = 40;
+    glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
+    glVertex2i (GROUND_SIZE, GROUND_SIZE);
+    glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
+    glVertex2i (-GROUND_SIZE, GROUND_SIZE);
+    glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
+    glVertex2i (-GROUND_SIZE, -GROUND_SIZE);
+    glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
+    glVertex2i (GROUND_SIZE, -GROUND_SIZE);
+    glEnd();
+    glDisable (GL_COLOR_MATERIAL);
+
+    /* place the light source in the scene. */
+    glLightfv (GL_LIGHT0, GL_POSITION, glm::value_ptr(glm::column(light0_cf, 3)));
+
+    /* recall that the last column of a CF is the origin of the CF */
+    glLightfv (GL_LIGHT1, GL_POSITION, glm::value_ptr(glm::column(light1_cf, 3)));
+
+    /* we use the Z-axis of the light CF as the spotlight direction */
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, glm::value_ptr(glm::column(light1_cf, 2)));
+
+    glEnable (GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+    glPushMatrix();
+    {
+        glMultMatrixf(glm::value_ptr(light0_cf));
+
+        /* Render light-0 as an emmisive object */
+        if (glIsEnabled(GL_LIGHT0))
+            glMaterialfv(GL_FRONT, GL_EMISSION, light0_color);
+        sphere1.render();
+        glMaterialfv(GL_FRONT, GL_EMISSION, black_color);
+    }
+    glPopMatrix();
+    glDisable (GL_COLOR_MATERIAL);
+
+
+    glEnable (GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+    for(int i = 0; i < STORMSIZE; i++){
         glPushMatrix();
-        glTranslated(i, 0, 0);
-        rd.render();
+        {
+            glMultMatrixf(glm::value_ptr(rainArray[i].rainCoord));
+            if(windX != 0)
+                glRotated(-rainSlant*45, 1, 0, 0);
+            if(windY != 0)
+                glRotated(rainSlant*45, 1, 0, 0);
+            drop.render();
+        }
         glPopMatrix();
     }
+    glDisable (GL_COLOR_MATERIAL);
 
-    /* must swap buffer at the end of render function */
+    glEnable (GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    glColor3ub (255, 255, 255);
+
+    /* render the spot light using its coordinate frame */
+    glPushMatrix();
+    glTranslated(5, 5, 5);
+    glMultMatrixf(glm::value_ptr(light1_cf));
+    spot->render();
+    glPopMatrix();
+
+    glDisable (GL_COLOR_MATERIAL);
+
+    /* to make smooth transition between frame */
     glfwSwapBuffers(win);
 }
 
-/* action: GLFW_PRESS, GLFW_RELEASE, or GLFW_REPEAT */
-void key_handler (GLFWwindow *win, int key, int scan_code, int action, int mods)
+void myModelInit ()
 {
-    cout << __FUNCTION__ << endl;
-    if (action != GLFW_PRESS) return;
+    windX = 0;
+    windY = 0;
+    windZ = 0;
+
+    sphere.build(15, 20);
+    spot = new Cylinder();
+    spot -> build(1 + tan(glm::radians(40.0f)), 1, 2);
+
+    sphere1.build(5, 15);
+    spot = new Cylinder();
+    spot -> build(1 + tan(glm::radians(50.0f)), 1.5, 2.5);
+
+    drop.build();
+
+    active = &camera_cf;
+
+    light0_cf = glm::translate(glm::vec3{-25, 8, 26});
+    int counter = 5;
+    for(int i = 0; i < STORMSIZE; i++){
+        rainArray[i].xCoord = (rand() %  40) - 20;
+        rainArray[i].yCoord = (rand() % 40) -30;
+        rainArray[i].zCoord = 18;
+        rainArray[i].rainCoord = glm::translate(glm::vec3{rainArray[i].xCoord,
+                rainArray[i].yCoord, rainArray[i].zCoord});
+    }
+
+    rain_drop_cf = glm::translate(glm::vec3{-12, 4, 18});
+
+    oldX = -12;
+    oldY = 4;
+    oldZ = 18;
+
+    light1_cf = glm::translate(glm::vec3{0, -10, 18});
+    light1_cf = light1_cf * glm::rotate (glm::radians(-120.0f), glm::vec3{1,0,0});
+}
+
+void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods) {
+    if (action == GLFW_RELEASE)
+    {
+        windX = 0;
+        windY = 0;
+        return; /* ignore key release action */
+    }
+
     if (mods == GLFW_MOD_SHIFT) {
         switch (key) {
-            case GLFW_KEY_D: /* Uppercase 'D' */
+            case GLFW_KEY_UP: /* tilt */
+                *active *= glm::rotate(glm::radians(-3.0f), glm::vec3{1.0f, 0.0f, 0.0f});
                 break;
-        }
+            case GLFW_KEY_DOWN: /* tilt */
+                *active *= glm::rotate(glm::radians(+3.0f), glm::vec3{1.0f, 0.0f, 0.0f});
+                break;
+            case GLFW_KEY_LEFT: /* pan left */
+                *active *= glm::rotate(glm::radians(-3.0f), glm::vec3{0.0f, 1.0f, 0.0f});
+                break;
+            case GLFW_KEY_RIGHT: /* pan right */
+                *active *= glm::rotate(glm::radians(+3.0f), glm::vec3{0.0f, 1.0f, 0.0f});
+                break;
+            case GLFW_KEY_X:
+                *active *= glm::translate(glm::vec3{1, 0, 0});
+                break;
+            case GLFW_KEY_Y:
+                *active *= glm::translate(glm::vec3{0, 1, 0});
+                break;
+            case GLFW_KEY_Z:
+                *active *= glm::translate(glm::vec3{0, 0, 1});
+                break;
+            case GLFW_KEY_D:
+                if(windX < 1){
+                    windX +=.05;
+                }
+                break;
+            case GLFW_KEY_S:
+                if(windY < 1){
+                    windY +=.05;
+                }
+                break;
+            default:
+                break;
+        };
+
     }
     else {
         switch (key) {
-            case GLFW_KEY_D: /* lowercase 'd' */
-                break;
-            case GLFW_KEY_MINUS:
-                break;
             case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(win, true);
-                break;
+                exit(0);
             case GLFW_KEY_0:
+                active = &light0_cf;
+                if (glIsEnabled(GL_LIGHT0))
+                    glDisable(GL_LIGHT0);
+                else
+                    glEnable(GL_LIGHT0);
                 break;
             case GLFW_KEY_1:
+                active = &light1_cf;
+                if (glIsEnabled(GL_LIGHT1))
+                    glDisable(GL_LIGHT1);
+                else
+                    glEnable(GL_LIGHT1);
                 break;
-            case GLFW_KEY_2:
+
+            case GLFW_KEY_SPACE: /* pause the animation */
+                is_anim_running ^= true;
                 break;
-            case GLFW_KEY_3:
+            case GLFW_KEY_C:
+                active = &camera_cf;
                 break;
-            case GLFW_KEY_4:
+            case GLFW_KEY_F:
                 break;
-            case GLFW_KEY_5:
+            case GLFW_KEY_X:
+                *active *= glm::translate(glm::vec3{-1, 0, 0});
                 break;
-            case GLFW_KEY_6:
+            case GLFW_KEY_Y:
+                *active *= glm::translate(glm::vec3{0, -1, 0});
                 break;
-            case GLFW_KEY_7:
+            case GLFW_KEY_Z:
+                *active *= glm::translate(glm::vec3{0, 0, -1});
                 break;
-            case GLFW_KEY_8:
+            case GLFW_KEY_D:
+                if(windX > -1){
+                    windX -=.05;
+                }
                 break;
-            case GLFW_KEY_9:
+            case GLFW_KEY_S:
+                if(windY > -1){
+                    windY -=.05;
+                }
                 break;
         }
     }
-    win_refresh(win);
 }
 
-/*
-    The virtual trackeyboardall technique implemented here is based on:
-    https://www.opengl.org/wiki/Object_Mouse_Trackeyboardall
-*/
-void cursor_handler (GLFWwindow *win, double xpos, double ypos) {
-    int state = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT);
-    static glm::vec3 first_click;
-    static glm::mat4 current_cam;
-    static bool is_tracking = false;
+int main (int argc, char **argv)
+{
 
-    glm::vec3 this_vec;
-    if (state == GLFW_PRESS) {
-        /* TODO: use glUnproject? */
-        float x = (xpos - screen_ctr_x);
-        float y = -(ypos - screen_ctr_y);
-        float hypot_square = x * x + y * y;
-        float z;
+    glfwInit();
+    GLFWwindow *win;
+    win = glfwCreateWindow(100, 50, "Animation", NULL, NULL);
 
-        /* determine whether the mouse is on the sphere or on the hyperbolic sheet */
-        if (2 * hypot_square < arc_ball_rad_square)
-            z = sqrt(arc_ball_rad_square - hypot_square);
-        else
-            z = arc_ball_rad_square / 2.0 / sqrt(hypot_square);
-        if (!is_tracking) {
-            /* store the mouse position when the button was pressed for the first time */
-            first_click = glm::normalize(glm::vec3{x, y, z});
-            current_cam = camera_cf;
-            is_tracking = true;
-        }
-        else {
-            /* compute the rotation w.r.t the initial click */
-            this_vec = glm::normalize(glm::vec3{x, y, z});
-            /* determine axis of rotation */
-            glm::vec3 N = glm::cross(first_click, this_vec);
-
-            /* determine the angle of rotation */
-            float theta = glm::angle(first_click, this_vec);
-
-            /* create a quaternion of the rotation */
-            glm::quat q{cos(theta / 2), sin(theta / 2) * N};
-            /* apply the rotation w.r.t to the current camera CF */
-            camera_cf = current_cam * glm::toMat4(glm::normalize(q));
-        }
-        win_refresh(win);
-    }
-    else {
-        is_tracking = false;
-    }
-}
-
-void scroll_handler (GLFWwindow *win, double xscroll, double yscroll) {
-    /* translate along the camera Z-axis */
-    glm::mat4 z_translate = glm::translate((float)yscroll * glm::vec3{0, 0, 1});
-    camera_cf =  z_translate * camera_cf;
-    win_refresh(win);
-
-}
-
-void init_gl() {
-    glEnable (GL_DEPTH_TEST);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnable(GL_CULL_FACE);
-    glLineWidth(3.0);
-
-    /* place the camera at Z=+5 (notice that the sign is OPPOSITE!) */
-    camera_cf *= glm::translate(glm::vec3{0, 0, -5});
-}
-
-void make_model() {
-    /*
-    ** TODO: Build the objects
-    */
-    rd.build();
-}
-
-int main() {
-    if(!glfwInit()) {
-        cerr << "Can't initialize GLFW" << endl;
-        glfwTerminate();
-        exit (EXIT_FAILURE);
-    }
-
-    glfwSetErrorCallback(err_function);
-    GLFWwindow * win;
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    win = glfwCreateWindow(100, 50, "Test", NULL, NULL);
-    if (!win) {
-        cerr << "Can't create window" << endl;
-        exit (EXIT_FAILURE);
-    }
-
-    glfwSetWindowRefreshCallback(win, win_refresh);
-    /* On Mac with Retina display there is a discrepancy between units measured in
-     * "screen coordinates" and "pixels" */
-    glfwSetWindowSizeCallback(win, win_resize);  /* use this for non-retina displays */
-    //glfwSetFramebufferSizeCallback(win, win_resize); /* use this for retina displays */
-    glfwSetKeyCallback(win, key_handler);
-    glfwSetCursorPosCallback(win, cursor_handler);
-    glfwSetScrollCallback(win, scroll_handler);
     glfwMakeContextCurrent(win);
-
-    /* glewInit must be invoked AFTER glfwMakeContextCurrent() */
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-        fprintf (stderr, "GLEW init error %s\n", glewGetErrorString(err));
+        fprintf (stderr, "GLEW init error %s\n",
+                glewGetErrorString(err));
         exit (EXIT_FAILURE);
     }
 
-    /* GL functions can be called, only AFTER the window is created */
-    const GLubyte *version = glGetString (GL_VERSION);
-    printf ("GL Version is %s\n", version);
+    srand (time(0));
 
+    myGLInit ();
+    myModelInit ();
 
-    glfwSetWindowSize(win, 450, 300);
-    glfwSwapInterval(1);
-    init_gl();
+    /* setup display callback function */
+    glfwSetFramebufferSizeCallback(win, reshapeCallback);
+    glfwSetWindowRefreshCallback(win, displayCallback);
+    glfwSetKeyCallback(win, keyCallback);
+    glfwSetWindowSize(win, 800, 600);
 
-    make_model();
-
-    int ev_num = 0;
-    win_refresh(win);
     while (!glfwWindowShouldClose(win)) {
-        glfwWaitEvents();
+        glfwPollEvents();
+        updateCoordFrames();
+        displayCallback(win);
     }
     glfwDestroyWindow(win);
     glfwTerminate();
-    return 0;
+
 }
