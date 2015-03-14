@@ -40,7 +40,7 @@ void MerryGoRound::render() const
     int rotation = 0;
 
     glPushMatrix();
-    glTranslated(11, 9, 0);
+    glTranslated(5, 3, 0);
 
     glPushMatrix();
     for(int i = 0; i < 4; i++) {
