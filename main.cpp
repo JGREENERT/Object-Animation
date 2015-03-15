@@ -52,6 +52,7 @@ double windX, windY;
 bool setTimer = false;
 int animTimer = 0;
 double last_timestamp;
+double last_lightning = 0;
 
 /*Merry Go Round Settings (Brass)*/
 GLfloat mgr_ambient[] = {0.329412, 0.223529, 0.027451, 1.000000};
@@ -181,11 +182,18 @@ void myGLInit ()
     glLightfv (GL_LIGHT0, GL_AMBIENT, light0_color);
     glLightfv (GL_LIGHT0, GL_DIFFUSE, light0_color);
     glLightfv (GL_LIGHT0, GL_SPECULAR, light0_color);
+
     glEnable (GL_LIGHT1);
     glLightfv (GL_LIGHT1, GL_AMBIENT, light1_color);
     glLightfv (GL_LIGHT1, GL_DIFFUSE, light1_color);
     glLightfv (GL_LIGHT1, GL_SPECULAR, light1_color);
     glLightf (GL_LIGHT1, GL_SPOT_CUTOFF, 40);
+
+    glEnable (GL_LIGHT2);
+    glLightfv (GL_LIGHT2, GL_AMBIENT, light0_color);
+    glLightfv (GL_LIGHT2, GL_DIFFUSE, light0_color);
+    glLightfv (GL_LIGHT2, GL_SPECULAR, light0_color);
+    glDisable(GL_LIGHT2);
 
     glEnableClientState(GL_VERTEX_ARRAY);
 }
@@ -311,6 +319,15 @@ void displayCallback (GLFWwindow *win)
     glPopMatrix();
     glDisable(GL_COLOR_MATERIAL);
 
+    if((rand() %  100) < 2){
+        glEnable(GL_LIGHT2);
+        last_lightning = glfwGetTime();
+    } else{
+        if(glfwGetTime() - last_lightning < 10000){
+            glDisable(GL_LIGHT2);
+        }
+    }
+
     /* to make smooth transition between frame */
     glfwSwapBuffers(win);
 }
@@ -333,8 +350,8 @@ void myModelInit ()
     light0_cf = glm::translate(glm::vec3{-25, 8, 26});
     int counter = 5;
     for(int i = 0; i < STORMSIZE; i++){
-        rainArray[i].xCoord = (rand() %  40) - 20;
-        rainArray[i].yCoord = (rand() % 40) -30;
+        rainArray[i].xCoord = (rand() %  80) - 40;
+        rainArray[i].yCoord = (rand() % 80) - 40;
         rainArray[i].zCoord = 18;
         rainArray[i].rainCoord = glm::translate(glm::vec3{rainArray[i].xCoord,
                 rainArray[i].yCoord, rainArray[i].zCoord});
@@ -357,6 +374,7 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
     {
         windX = 0;
         windY = 0;
+        glDisable(GL_LIGHT2);
         return; /* ignore key release action */
     }
 
