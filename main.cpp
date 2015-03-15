@@ -9,6 +9,7 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/io.hpp>
+#include <glm/gtx/vector_angle.hpp>
 #include "Complex Objects/Raindrop.h"
 #include "Simple Objects/Cylinder.h"
 #include "Simple Objects/Sphere.h"
@@ -24,6 +25,9 @@ Sphere sphere1;
 Raindrop drop;
 MerryGoRound mgr;
 Lamp lp;
+
+float arc_ball_rad_square;
+int screen_ctr_x, screen_ctr_y;
 
 glm::mat4 rain_drop_cf;
 glm::mat4 camera_cf, light1_cf, light0_cf, mgr_cf, lp_cf;
@@ -194,7 +198,10 @@ void displayCallback (GLFWwindow *win)
     /* clear the window */
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glLoadMatrixf(glm::value_ptr(camera_cf));
+    glMatrixMode (GL_MODELVIEW);
+    glLoadIdentity();
+    /* place the camera using the camera coordinate frame */
+    glMultMatrixf (glm::value_ptr(camera_cf));
 
     /* Specify the reflectance property of the ground using glColor
        (instead of glMaterial....)
@@ -458,6 +465,65 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
     }
 }
 
+/*
+    The virtual trackball technique implemented here is based on:
+    https://www.opengl.org/wiki/Object_Mouse_Trackball
+*/
+void cursor_handler (GLFWwindow *win, double xpos, double ypos) {
+    int state = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT);
+    static glm::vec3 first_click;
+    static glm::mat4 current_cam;
+    static bool is_tracking = false;
+
+    glm::vec3 this_vec;
+    if (state == GLFW_PRESS) {
+        /* TODO: use glUnproject? */
+        float x = (xpos - screen_ctr_x);
+        float y = -(ypos - screen_ctr_y);
+        float hypot_square = x * x + y * y;
+        float z;
+
+        /* determine whether the mouse is on the sphere or on the hyperbolic sheet */
+        if (2 * hypot_square < arc_ball_rad_square)
+            z = sqrt(arc_ball_rad_square - hypot_square);
+        else
+            z = arc_ball_rad_square / 2.0 / sqrt(hypot_square);
+        if (!is_tracking) {
+            /* store the mouse position when the button was pressed for the first time */
+            first_click = glm::normalize(glm::vec3{x, y, z});
+            current_cam = camera_cf;
+            is_tracking = true;
+        }
+        else {
+            /* compute the rotation w.r.t the initial click */
+            this_vec = glm::normalize(glm::vec3{x, y, z});
+            /* determine axis of rotation */
+            glm::vec3 N = glm::cross(first_click, this_vec);
+
+            /* determine the angle of rotation */
+            float theta = glm::angle(first_click, this_vec);
+
+            /* create a quaternion of the rotation */
+            glm::quat q{cos(theta / 2), sin(theta / 2) * N};
+            /* apply the rotation w.r.t to the current camera CF */
+            camera_cf = current_cam * glm::toMat4(glm::normalize(q));
+        }
+        displayCallback(win);
+    }
+    else {
+        is_tracking = false;
+    }
+}
+
+void scroll_handler (GLFWwindow *win, double xscroll, double yscroll) {
+    /* translate along the camera Z-axis */
+    glm::mat4 z_translate = glm::translate((float)yscroll * glm::vec3{0, 0, 1});
+    camera_cf =  z_translate * camera_cf;
+    displayCallback(win);
+
+}
+
+
 int main (int argc, char **argv)
 {
 
@@ -481,6 +547,10 @@ int main (int argc, char **argv)
     /* setup display callback function */
     glfwSetFramebufferSizeCallback(win, reshapeCallback);
     glfwSetWindowRefreshCallback(win, displayCallback);
+    glfwSetCursorPosCallback(win, cursor_handler);
+    glfwSetScrollCallback(win, scroll_handler);
+    glfwMakeContextCurrent(win);
+
     glfwSetKeyCallback(win, keyCallback);
     glfwSetWindowSize(win, 800, 600);
 

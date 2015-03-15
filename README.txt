@@ -10,11 +10,15 @@ Rain = Not Implemented (Each Raindrop has its own CF, that's a lot of CF's)
 
 Rotate Object:
 Shift + Arrow Keys (Use combination of Up/Down and Left/Right to move along Z-Axis)
+Mouse (Rotates horizontally around object)
 
 Translate Object:
 X = X-Axis
 Y = Y-Axis
 Z = Z-Axis
+
+Object Zoom:
+Scroll (Zooms towards or away from object)
 
 Add Wind:
 S, D, Shift + S, Shift + D
