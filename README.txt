@@ -4,6 +4,7 @@ Select Object:
 Camera = c
 Merry Go Round = m
 Light Post = l
+Light Post Light = 1
 Moon = 0
 Rain = Not Implemented (Each Raindrop has its own CF, that's a lot of CF's)
 
@@ -18,6 +19,17 @@ Z = Z-Axis
 Add Wind:
 S, D, Shift + S, Shift + D
 
+Increase/Decrease Rain Fall Speed:
+f = Decrease 
+g = Increase 
+
 Light Switches:
-Light Post = 1
+Light Post = l
+Light Post Light = 1
 Moon = 0
+
+Object Animation Timer:
+t = set timer for a 10 second animation
+
+Pause Animation:
+Space Bar

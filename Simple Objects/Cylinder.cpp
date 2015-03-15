@@ -6,12 +6,14 @@ Cylinder::~Cylinder() {
     glDeleteBuffers(1, &v_buf);
     glDeleteBuffers(1, &i_buf);
     glDeleteBuffers(1, &n_buf);
+    glDeleteBuffers(1, &c_buf);
 }
 
-void Cylinder::build(float topRad, float botRad, float height) {
+void Cylinder::build(float topRad, float botRad, float height, glm::vec3 color) {
     glGenBuffers (1, &v_buf);
     glGenBuffers (1, &i_buf);
     glGenBuffers (1, &n_buf);
+    glGenBuffers (1, &c_buf);
     float delta = 2 * M_PI / N_POINTS;
 
 
@@ -25,6 +27,10 @@ void Cylinder::build(float topRad, float botRad, float height) {
         vertices.push_back (x);
         vertices.push_back (y);
         vertices.push_back (height/2);
+        /*Push Back Colors*/
+        colors.push_back(color[0]);
+        colors.push_back(color[1]);
+        colors.push_back(color[2]);
         angle += delta;
 
     }
@@ -38,6 +44,10 @@ void Cylinder::build(float topRad, float botRad, float height) {
         vertices.push_back (x);
         vertices.push_back (y);
         vertices.push_back (-height/2);
+        /*Push Back Colors*/
+        colors.push_back(color[0]);
+        colors.push_back(color[1]);
+        colors.push_back(color[2]);
         angle += delta;
     }
 
@@ -45,7 +55,10 @@ void Cylinder::build(float topRad, float botRad, float height) {
     vertices.push_back (0);  /* x */
     vertices.push_back (0); /* y */
     vertices.push_back (height/2); /* z */
-
+    /*Push Back Colors*/
+    colors.push_back(color[0]);
+    colors.push_back(color[1]);
+    colors.push_back(color[2]);
 
     for (int n = 0; n < 2; n++) {
         angle = 0;
@@ -97,6 +110,12 @@ void Cylinder::build(float topRad, float botRad, float height) {
     /* deselect the buffer */
     glBindBuffer (GL_ARRAY_BUFFER, 0);
 
+    /*Color Buffer*/
+    glBindBuffer (GL_ARRAY_BUFFER, c_buf);
+    glBufferData (GL_ARRAY_BUFFER,
+            colors.size() * sizeof(GLfloat), colors.data(), GL_STATIC_DRAW);
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+
     /* select the buffer */
     glBindBuffer (GL_ARRAY_BUFFER, n_buf);
     /* allocate in GPU and copy from CPU */
@@ -116,10 +135,13 @@ void Cylinder::build(float topRad, float botRad, float height) {
 void Cylinder::render() const {
     /* select the buffs */
     glPushAttrib(GL_ENABLE_BIT);
-    glDisableClientState(GL_COLOR_ARRAY);
+    //glDisableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
     glBindBuffer (GL_ARRAY_BUFFER, v_buf);
     glVertexPointer(3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, c_buf);
+    glColorPointer(3, GL_FLOAT, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, n_buf);
     glNormalPointer(GL_FLOAT, 0, 0);
     glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, i_buf);

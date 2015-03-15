@@ -10,13 +10,13 @@ using namespace std;
 class Cylinder {
 private:
     const int N_POINTS = 20;
-    GLuint v_buf, i_buf, n_buf;
-    vector<float> vertices, normals;
+    GLuint v_buf, i_buf, n_buf, c_buf;
+    vector<float> vertices, normals, colors;
     vector<GLushort> index;
 
 public:
     ~Cylinder();
-    void build(float topRad = 0.5f, float botRad = 0.5f, float height = 1.0);
+    void build(float topRad = 0.5f, float botRad = 0.5f, float height = 1.0, glm::vec3 color = {0, 1, 0});
     void render() const;
 };
 #endif

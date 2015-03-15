@@ -4,7 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <lcms.h>
 
-void Sphere::build (int latRings, int lonRings) {
+void Sphere::build (int latRings, int lonRings, glm::vec3 color) {
     numLatitudeRings = latRings;
     numLongitudeRings = lonRings;
 
@@ -22,6 +22,10 @@ void Sphere::build (int latRings, int lonRings) {
             vertices.push_back(latRad * cos(deg));
             vertices.push_back(latRad * sin(deg));
             vertices.push_back(z);
+            /*Push Back Colors*/
+            colors.push_back(color[0]);
+            colors.push_back(color[1]);
+            colors.push_back(color[2]);
             glm::vec3 norm = glm::normalize(glm::vec3{cos(deg), sin(deg), z});
             normals.push_back(norm.x);
             normals.push_back(norm.y);
@@ -35,12 +39,20 @@ void Sphere::build (int latRings, int lonRings) {
     vertices.push_back(0.0f); /* north pole */
     vertices.push_back(0.0f);
     vertices.push_back(1.0f);
+    /*Push Back Colors*/
+    colors.push_back(color[0]);
+    colors.push_back(color[1]);
+    colors.push_back(color[2]);
     normals.push_back(0.0f); /* north pole */
     normals.push_back(0.0f);
     normals.push_back(1.0f);
     vertices.push_back(0.0f); /* south pole */
     vertices.push_back(0.0f);
     vertices.push_back(-1.0f);
+    /*Push Back Colors*/
+    colors.push_back(color[0]);
+    colors.push_back(color[1]);
+    colors.push_back(color[2]);
     normals.push_back(0.0f); /* north pole */
     normals.push_back(0.0f);
     normals.push_back(-1.0f);
@@ -82,6 +94,12 @@ void Sphere::build (int latRings, int lonRings) {
             vertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    glGenBuffers(1, &color_buffer);
+    glBindBuffer (GL_ARRAY_BUFFER, color_buffer);
+    glBufferData (GL_ARRAY_BUFFER,
+            colors.size() * sizeof(GLfloat), colors.data(), GL_STATIC_DRAW);
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+
     glGenBuffers(1, &normal_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
     glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(GLfloat),
@@ -99,8 +117,12 @@ void Sphere::build (int latRings, int lonRings) {
 void Sphere::render() const {
     glPushAttrib(GL_ENABLE_BIT);
     glEnable(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glVertexPointer(3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
+    glColorPointer(3, GL_FLOAT, 0, 0);
     glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
     glNormalPointer(GL_FLOAT, 0, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);

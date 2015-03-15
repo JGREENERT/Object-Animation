@@ -25,8 +25,8 @@ if (APPLE)
 endif (APPLE)
 
 set(SOURCE_FILES "main.cpp"
-"Simple Objects/Cylinder.cpp" "Simple Objects/Sphere.cpp" "Simple Objects/Torus.cpp" 
-"Complex Objects/Raindrop.cpp" "Complex Objects/MerryGoRound.cpp")
+"Simple Objects/Cylinder.cpp" "Simple Objects/Sphere.cpp" "Simple Objects/Torus.cpp"
+"Complex Objects/Raindrop.cpp" "Complex Objects/MerryGoRound.cpp" "Complex Objects/Lamp.cpp")
 ## "sample" is the name of the executable
 add_executable(sample ${SOURCE_FILES})
   target_link_libraries (sample

@@ -4,7 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <lcms.h>
 
-void Torus::build (float RAD, float rad, int majorRings, int minorRings, int span) {
+void Torus::build (float RAD, float rad, int majorRings, int minorRings, int span, glm::vec3 color) {
     this->majorRings = majorRings;
     this->minorRings = minorRings;
     fullTorus = span == 360;
@@ -21,6 +21,10 @@ void Torus::build (float RAD, float rad, int majorRings, int minorRings, int spa
             vertices.push_back(R * cos(majAngle));
             vertices.push_back(R * sin(majAngle));
             vertices.push_back(z);
+            /*Push Back Colors*/
+            colors.push_back(color[0]);
+            colors.push_back(color[1]);
+            colors.push_back(color[2]);
             /* calculate normal */
             glm::vec3 majTangent{-sin(majAngle), cos(majAngle), 0};
             glm::vec3 minTangent{
@@ -53,6 +57,12 @@ void Torus::build (float RAD, float rad, int majorRings, int minorRings, int spa
             vertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    glGenBuffers(1, &color_buffer);
+    glBindBuffer (GL_ARRAY_BUFFER, color_buffer);
+    glBufferData (GL_ARRAY_BUFFER,
+            colors.size() * sizeof(GLfloat), colors.data(), GL_STATIC_DRAW);
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+
     glGenBuffers(1, &normal_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
     glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(GLfloat),
@@ -69,13 +79,14 @@ void Torus::build (float RAD, float rad, int majorRings, int minorRings, int spa
 
 void Torus::render() const {
     glPushAttrib(GL_ENABLE_BIT);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glVertexPointer(3, GL_FLOAT, 0, 0);
-    if (glIsBuffer(normal_buffer)) {
-        glEnableClientState(GL_NORMAL_ARRAY);
-        glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
-        glNormalPointer(GL_FLOAT, 0, 0);
-    }
+    glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
+    glColorPointer(3, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
+    glNormalPointer(GL_FLOAT, 0, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
 
     GLushort *ptr = 0;

@@ -13,18 +13,20 @@
 #include "Simple Objects/Cylinder.h"
 #include "Simple Objects/Sphere.h"
 #include "Complex Objects/MerryGoRound.h"
+#include "Complex Objects/Lamp.h"
 
 using namespace std;
 void displayCallback(GLFWwindow*);
 
 /* define global variables here */
 Cylinder* spot;
-Sphere sphere, sphere1;
+Sphere sphere1;
 Raindrop drop;
 MerryGoRound mgr;
+Lamp lp;
 
 glm::mat4 rain_drop_cf;
-glm::mat4 camera_cf, light1_cf, light0_cf, mgr_cf;
+glm::mat4 camera_cf, light1_cf, light0_cf, mgr_cf, lp_cf;
 glm::mat4 *active;
 
 struct RAIN{
@@ -34,7 +36,7 @@ struct RAIN{
     glm::mat4 rainCoord;
 };
 
-const int STORMSIZE = 100;
+const int STORMSIZE = 200;
 RAIN rainArray[STORMSIZE];
 
 float GRAVITY = 0.25;   /* m/sec^2 */
@@ -43,6 +45,9 @@ double oldX, oldY, oldZ;
 float spinDegree;
 bool is_anim_running = true;
 double windX, windY;
+bool setTimer = false;
+int animTimer = 0;
+double last_timestamp;
 
 /*Merry Go Round Settings (Brass)*/
 GLfloat mgr_ambient[] = {0.329412, 0.223529, 0.027451, 1.000000};
@@ -92,7 +97,26 @@ void updateCoordFrames()
 {
     float current;
 
+    current = glfwGetTime();
     if (is_anim_running) {
+
+        //Reset After Time is Up
+        if(last_timestamp > animTimer && animTimer != 0)
+        {
+            setTimer = false;
+            animTimer = 0;
+            windX = 0;
+            windY = 0;
+        }
+
+        //Set During Time
+        if(setTimer)
+        {
+            windX += 0.001;
+            windY += 0.001;
+            spinDegree = 0.1;
+        }
+
         /*
         * Rain Animation
         */
@@ -125,6 +149,7 @@ void updateCoordFrames()
             mgr_cf = mgr_cf * glm::rotate(spinDegree, glm::vec3{0, 0, 1});
         }
     }
+    last_timestamp = current;
 }
 
 void myGLInit ()
@@ -176,7 +201,7 @@ void displayCallback (GLFWwindow *win)
      */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-    glColor3ub (114, 103, 103);
+    glColor3ub (0, 92, 9);
     glBegin (GL_QUADS);
     const int GROUND_SIZE = 40;
     glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
@@ -261,10 +286,21 @@ void displayCallback (GLFWwindow *win)
     */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-    glColor3ub (255, 255, 255);
-    glPushMatrix();
-    glMultMatrixf(glm::value_ptr(light1_cf));
-    spot->render();
+    glMaterialfv(GL_FRONT, GL_AMBIENT, lp_ambient);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, lp_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, lp_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, lp_shininess);
+    glPopMatrix();
+    {
+        glMultMatrixf(glm::value_ptr(lp_cf));
+        lp.render();
+        glPushMatrix();
+        {
+            glMultMatrixf(glm::value_ptr(light1_cf));
+            spot->render();
+        }
+        glPopMatrix();
+    }
     glPopMatrix();
     glDisable(GL_COLOR_MATERIAL);
 
@@ -277,16 +313,13 @@ void myModelInit ()
     windX = 0;
     windY = 0;
 
-    sphere.build(15, 20);
-    spot = new Cylinder();
-    spot -> build(1 + tan(glm::radians(40.0f)), 1, 2);
-
     sphere1.build(5, 15);
     spot = new Cylinder();
-    spot -> build(1 + tan(glm::radians(50.0f)), 1.5, 2.5);
+    spot -> build(1 + tan(glm::radians(50.0f)), 1.5, 2.5, {1, 1, 1});
 
     drop.build();
     mgr.build();
+    lp.build();
 
     active = &camera_cf;
 
@@ -302,6 +335,7 @@ void myModelInit ()
 
     rain_drop_cf = glm::translate(glm::vec3{-12, 4, 18});
     mgr_cf = glm::translate(glm::vec3{0, 0, 0});
+    lp_cf = glm::translate(glm::vec3{0, 0, 0});
 
     oldX = -12;
     oldY = 4;
@@ -412,6 +446,13 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
                 if(windY > -1){
                     windY -=.05;
                 }
+                break;
+            case GLFW_KEY_T:
+                animTimer = last_timestamp + 10;
+                setTimer = true;
+                break;
+            case GLFW_KEY_L:
+                active = &lp_cf;
                 break;
         }
     }
