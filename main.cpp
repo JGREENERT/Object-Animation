@@ -22,12 +22,9 @@ Cylinder* spot;
 Sphere sphere, sphere1;
 Raindrop drop;
 MerryGoRound mgr;
-const int STORMSIZE = 100;
-const float GRAVITY = 0.25;   /* m/sec^2 */
-double rainSlant = 0.0;
 
 glm::mat4 rain_drop_cf;
-glm::mat4 camera_cf, light1_cf, light0_cf;
+glm::mat4 camera_cf, light1_cf, light0_cf, mgr_cf;
 glm::mat4 *active;
 
 struct RAIN{
@@ -37,11 +34,33 @@ struct RAIN{
     glm::mat4 rainCoord;
 };
 
+const int STORMSIZE = 100;
 RAIN rainArray[STORMSIZE];
 
+float GRAVITY = 0.25;   /* m/sec^2 */
+double rainSlant = 0.0;
 double oldX, oldY, oldZ;
+float spinDegree;
 bool is_anim_running = true;
-double windX, windY, windZ;
+double windX, windY;
+
+/*Merry Go Round Settings (Brass)*/
+GLfloat mgr_ambient[] = {0.329412, 0.223529, 0.027451, 1.000000};
+GLfloat mgr_diffuse[] = {0.780392, 0.568627, 0.113725, 1.000000};
+GLfloat mgr_specular[] = {0.992157, 0.941176, 0.807843, 1.000000};
+GLfloat mgr_shininess[] = {27.897400};
+
+/*Light Post Settings (Copper)*/
+GLfloat lp_ambient[] = {0.191250, 0.073500, 0.022500, 1.000000};
+GLfloat lp_diffuse[] = {0.703800, 0.270480, 0.082800, 1.000000};
+GLfloat lp_specular[] = {0.256777, 0.137622, 0.086014, 1.000000};
+GLfloat lp_shininess[] = {12.800000};
+
+/*Raindrop Settings (Silver)*/
+GLfloat drop_ambient[] = {0.192250, 0.192250, 0.192250, 1.000000};
+GLfloat drop_diffuse[] = {0.507540, 0.507540, 0.507540, 1.000000};
+GLfloat drop_specular[] = {0.508273, 0.508273, 0.508273, 1.000000};
+GLfloat drop_shininess[] = {51.200001};
 
 /* light source setting */
 GLfloat light0_color[] = {1.0, 1.0, 1.0, 1.0};   /* color */
@@ -51,8 +70,6 @@ GLfloat black_color[] = {0.0, 0.0, 0.0, 1.0};   /* color */
 /*--------------------------------*
  * GLUT Reshape callback function *
  *--------------------------------*/
-
-
 void reshapeCallback (GLFWwindow *win, int w, int h)
 {
     glViewport (0, 0, w, h);
@@ -73,15 +90,12 @@ void reshapeCallback (GLFWwindow *win, int w, int h)
  *================================================================*/
 void updateCoordFrames()
 {
-    static double last_timestamp = 0;
-    static int deg = 0;
-    float delta, current;
+    float current;
 
-
-    current = glfwGetTime();
     if (is_anim_running) {
-        delta = (current - last_timestamp);
-
+        /*
+        * Rain Animation
+        */
         oldZ -=.25;
         if(oldZ == -1){
             oldZ = 18;
@@ -91,8 +105,9 @@ void updateCoordFrames()
         for(int i = 0; i < STORMSIZE; i++){
             rainArray[i].xCoord += windX/2;
             rainArray[i].yCoord += windY/2;
-            rainArray[i].zCoord -= GRAVITY;
-            if(rainArray[i].zCoord== -1){
+            if(GRAVITY > 0)
+                rainArray[i].zCoord -= GRAVITY;
+            if(rainArray[i].zCoord < 0){
                 rainArray[i].xCoord = (rand() %  40) - 20;
                 rainArray[i].yCoord = (rand() % 40) -30;
                 rainArray[i].zCoord = 18+i+1;
@@ -101,8 +116,15 @@ void updateCoordFrames()
                     rainArray[i].yCoord, rainArray[i].zCoord});
         }
         rainSlant = windX + windY;
+
+        /*
+        * Merry Go Round Animation
+        */
+        if(spinDegree > 0) {
+            spinDegree -= 0.001;
+            mgr_cf = mgr_cf * glm::rotate(spinDegree, glm::vec3{0, 0, 1});
+        }
     }
-    last_timestamp = current;
 }
 
 void myGLInit ()
@@ -155,7 +177,6 @@ void displayCallback (GLFWwindow *win)
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glColor3ub (114, 103, 103);
-
     glBegin (GL_QUADS);
     const int GROUND_SIZE = 40;
     glNormal3f (0.0f, 0.0f, 1.0f); /* normal vector for the ground */
@@ -178,14 +199,14 @@ void displayCallback (GLFWwindow *win)
     /* we use the Z-axis of the light CF as the spotlight direction */
     glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, glm::value_ptr(glm::column(light1_cf, 2)));
 
+    /*
+    ** Render the Moon
+    */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-
     glPushMatrix();
     {
         glMultMatrixf(glm::value_ptr(light0_cf));
-
-        /* Render light-0 as an emmisive object */
         if (glIsEnabled(GL_LIGHT0))
             glMaterialfv(GL_FRONT, GL_EMISSION, light0_color);
         sphere1.render();
@@ -200,6 +221,10 @@ void displayCallback (GLFWwindow *win)
     */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    glMaterialfv(GL_FRONT, GL_AMBIENT, drop_ambient);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, drop_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, drop_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, drop_shininess);
     for(int i = 0; i < STORMSIZE; i++){
         glPushMatrix();
         {
@@ -212,27 +237,36 @@ void displayCallback (GLFWwindow *win)
         }
         glPopMatrix();
     }
-    glDisable (GL_COLOR_MATERIAL);
+    glDisable(GL_COLOR_MATERIAL);
 
     /*
     ** Render the Merry Go Round
     */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    glMaterialfv(GL_FRONT, GL_AMBIENT, mgr_ambient);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, mgr_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mgr_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mgr_shininess);
     glPushMatrix();
-    mgr.render();
+    {
+        glMultMatrixf(glm::value_ptr(mgr_cf));
+        mgr.render();
+    }
     glPopMatrix();
-    glDisable (GL_COLOR_MATERIAL);
+    glDisable(GL_COLOR_MATERIAL);
 
+    /*
+    ** Render the Spotlight
+    */
     glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glColor3ub (255, 255, 255);
-    /* render the spot light using its coordinate frame */
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(light1_cf));
     spot->render();
     glPopMatrix();
-    glDisable (GL_COLOR_MATERIAL);
+    glDisable(GL_COLOR_MATERIAL);
 
     /* to make smooth transition between frame */
     glfwSwapBuffers(win);
@@ -242,7 +276,6 @@ void myModelInit ()
 {
     windX = 0;
     windY = 0;
-    windZ = 0;
 
     sphere.build(15, 20);
     spot = new Cylinder();
@@ -268,6 +301,7 @@ void myModelInit ()
     }
 
     rain_drop_cf = glm::translate(glm::vec3{-12, 4, 18});
+    mgr_cf = glm::translate(glm::vec3{0, 0, 0});
 
     oldX = -12;
     oldY = 4;
@@ -309,11 +343,13 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
                 *active *= glm::translate(glm::vec3{0, 0, 1});
                 break;
             case GLFW_KEY_D:
+                spinDegree += 0.01;
                 if(windX < 1){
-                    windX +=.05;
+                    windX +=.01;
                 }
                 break;
             case GLFW_KEY_S:
+                spinDegree += 0.01;
                 if(windY < 1){
                     windY +=.05;
                 }
@@ -341,14 +377,20 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
                 else
                     glEnable(GL_LIGHT1);
                 break;
-
+            case GLFW_KEY_M:
+                active = &mgr_cf;
+                break;
             case GLFW_KEY_SPACE: /* pause the animation */
                 is_anim_running ^= true;
                 break;
             case GLFW_KEY_C:
-                active = &camera_cf;
+                active = &camera_cf; //Set Camera Active
                 break;
             case GLFW_KEY_F:
+                GRAVITY -= 0.1f; //Reduce Rain Fall Speed
+                break;
+            case GLFW_KEY_G:
+                GRAVITY += 0.1f; //Increase Rain Fall Speed
                 break;
             case GLFW_KEY_X:
                 *active *= glm::translate(glm::vec3{-1, 0, 0});
@@ -360,11 +402,13 @@ void keyCallback (GLFWwindow *win, int key, int scan_code, int action, int mods)
                 *active *= glm::translate(glm::vec3{0, 0, -1});
                 break;
             case GLFW_KEY_D:
+                spinDegree += 0.01;
                 if(windX > -1){
                     windX -=.05;
                 }
                 break;
             case GLFW_KEY_S:
+                spinDegree += 0.01;
                 if(windY > -1){
                     windY -=.05;
                 }
