@@ -56,19 +56,22 @@ double last_lightning = 0;
 
 /*Merry Go Round Settings (Brass)*/
 GLfloat mgr_ambient[] = {0.329412, 0.223529, 0.027451, 1.000000};
-GLfloat mgr_diffuse[] = {0.780392, 0.568627, 0.113725, 1.000000};
+//GLfloat mgr_diffuse[] = {0.780392, 0.568627, 0.113725, 1.000000};
+GLfloat mgr_diffuse[] = {1.0, 0.0, 0.0, 1.000000};
 GLfloat mgr_specular[] = {0.992157, 0.941176, 0.807843, 1.000000};
 GLfloat mgr_shininess[] = {27.897400};
 
 /*Light Post Settings (Copper)*/
 GLfloat lp_ambient[] = {0.191250, 0.073500, 0.022500, 1.000000};
-GLfloat lp_diffuse[] = {0.703800, 0.270480, 0.082800, 1.000000};
+//GLfloat lp_diffuse[] = {0.703800, 0.270480, 0.082800, 1.000000};
+GLfloat lp_diffuse[] = {0.5, 0.45, 0.43, 1.000000};
 GLfloat lp_specular[] = {0.256777, 0.137622, 0.086014, 1.000000};
 GLfloat lp_shininess[] = {12.800000};
 
 /*Raindrop Settings (Silver)*/
 GLfloat drop_ambient[] = {0.192250, 0.192250, 0.192250, 1.000000};
-GLfloat drop_diffuse[] = {0.507540, 0.507540, 0.507540, 1.000000};
+//GLfloat drop_diffuse[] = {0.507540, 0.507540, 0.507540, 1.000000};
+GLfloat drop_diffuse[] = {0.0, 0.0, 1, 1.000000};
 GLfloat drop_specular[] = {0.508273, 0.508273, 0.508273, 1.000000};
 GLfloat drop_shininess[] = {51.200001};
 
@@ -259,7 +262,6 @@ void displayCallback (GLFWwindow *win)
     /*
     ** Render the Raindrops
     */
-    glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glMaterialfv(GL_FRONT, GL_AMBIENT, drop_ambient);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, drop_diffuse);
@@ -277,12 +279,11 @@ void displayCallback (GLFWwindow *win)
         }
         glPopMatrix();
     }
-    glDisable(GL_COLOR_MATERIAL);
+
 
     /*
     ** Render the Merry Go Round
     */
-    glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glMaterialfv(GL_FRONT, GL_AMBIENT, mgr_ambient);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, mgr_diffuse);
@@ -294,12 +295,10 @@ void displayCallback (GLFWwindow *win)
         mgr.render();
     }
     glPopMatrix();
-    glDisable(GL_COLOR_MATERIAL);
 
     /*
     ** Render the Spotlight
     */
-    glEnable (GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
     glMaterialfv(GL_FRONT, GL_AMBIENT, lp_ambient);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, lp_diffuse);
@@ -311,13 +310,14 @@ void displayCallback (GLFWwindow *win)
         lp.render();
         glPushMatrix();
         {
+            glEnable (GL_COLOR_MATERIAL);
             glMultMatrixf(glm::value_ptr(light1_cf));
             spot->render();
+            glDisable(GL_COLOR_MATERIAL);
         }
         glPopMatrix();
     }
     glPopMatrix();
-    glDisable(GL_COLOR_MATERIAL);
 
     if((rand() %  100) < 2){
         glEnable(GL_LIGHT2);
